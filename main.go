@@ -11,24 +11,24 @@ import (
 )
 
 type count struct {
-  bytes int
-  lines int
-  chars int
-  words int
-  longest int
+	bytes   int
+	lines   int
+	chars   int
+	words   int
+	longest int
 }
 
 type flags struct {
-  showBytes bool
-  showLines bool
-  showChars bool
-  showWords bool
-  showLongest bool
+	showBytes   bool
+	showLines   bool
+	showChars   bool
+	showWords   bool
+	showLongest bool
 }
 
 func manuallyParseArgs() (bool, []string, bool) {
 	customFlagsSet := false
-  hasPipedData := false
+	hasPipedData := false
 	var fileArgs []string
 	var flagArgs []string
 
@@ -47,11 +47,11 @@ func manuallyParseArgs() (bool, []string, bool) {
 	flag.Parse()
 
 	meta, _ := os.Stdin.Stat()
-  hasPipedData = meta.Mode() & os.ModeCharDevice == 0 
+	hasPipedData = meta.Mode()&os.ModeCharDevice == 0
 
-	if (hasPipedData && len(fileArgs) > 0) {
-    hasPipedData = false
-  }
+	if hasPipedData && len(fileArgs) > 0 {
+		hasPipedData = false
+	}
 
 	return customFlagsSet, fileArgs, hasPipedData
 }
@@ -66,137 +66,137 @@ func resetFlags(flagArgs []string, linePtr, wordPtr, bytePtr, charsPtr *bool) {
 				*wordPtr = true
 			case "c":
 				*bytePtr = true
-        *charsPtr = false
-      case "m":
-        *charsPtr = true
-        *bytePtr = false
+				*charsPtr = false
+			case "m":
+				*charsPtr = true
+				*bytePtr = false
 			}
 		}
 	}
 }
 
 func wc(reader io.Reader) *count {
-  var (
-    bytes int
-    lines int
-    words int
-    chars int
-    longest int
-  )
+	var (
+		bytes   int
+		lines   int
+		words   int
+		chars   int
+		longest int
+	)
 
-  var wg sync.WaitGroup
-  wg.Add(4)
+	var wg sync.WaitGroup
+	wg.Add(4)
 
-  r1, w1 := io.Pipe()
-  r2, w2 := io.Pipe()
-  r3, w3 := io.Pipe()
-  r4, w4 := io.Pipe()
+	r1, w1 := io.Pipe()
+	r2, w2 := io.Pipe()
+	r3, w3 := io.Pipe()
+	r4, w4 := io.Pipe()
 
-  multiWrite := io.MultiWriter(w1, w2, w3, w4)
+	multiWrite := io.MultiWriter(w1, w2, w3, w4)
 
-  go func() {
-    defer w1.Close()
-    defer w2.Close()
-    defer w3.Close()
-    defer w4.Close()
-    io.Copy(multiWrite, reader)
-  }()
+	go func() {
+		defer w1.Close()
+		defer w2.Close()
+		defer w3.Close()
+		defer w4.Close()
+		io.Copy(multiWrite, reader)
+	}()
 
-  go func() {
-    defer wg.Done()
-    countWithSplitFunc(r1, bufio.ScanBytes, &bytes, nil)
-  }()
-  
-  go func() {
-    defer wg.Done()
-    countWithSplitFunc(r2, bufio.ScanLines, &lines, &longest)
-  }()
+	go func() {
+		defer wg.Done()
+		countWithSplitFunc(r1, bufio.ScanBytes, &bytes, nil)
+	}()
 
-  go func() {
-    defer wg.Done()
-    countWithSplitFunc(r3, bufio.ScanWords, &words, nil)
-  }()
+	go func() {
+		defer wg.Done()
+		countWithSplitFunc(r2, bufio.ScanLines, &lines, &longest)
+	}()
 
-  go func() {
-    defer wg.Done()
-    countRunesAndLonestLine(r4, &chars, &longest)
-  }()
+	go func() {
+		defer wg.Done()
+		countWithSplitFunc(r3, bufio.ScanWords, &words, nil)
+	}()
 
-  wg.Wait()
+	go func() {
+		defer wg.Done()
+		countRunesAndLonestLine(r4, &chars, &longest)
+	}()
 
-  return &count{
-    lines: lines,
-    words: words,
-    bytes: bytes,
-    chars: chars,
-    longest: longest,
-  }
+	wg.Wait()
+
+	return &count{
+		lines:   lines,
+		words:   words,
+		bytes:   bytes,
+		chars:   chars,
+		longest: longest,
+	}
 }
 
 func countWithSplitFunc(reader io.Reader, splitfunc bufio.SplitFunc, result *int, result2 *int) {
-  scanner := bufio.NewScanner(reader)
-  scanner.Split(splitfunc)
-  count := 0
-  for scanner.Scan() {
-    count++
-    if result2 != nil {
-      *result2 = max(*result2, len(scanner.Text()))
-    }
-  }
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(splitfunc)
+	count := 0
+	for scanner.Scan() {
+		count++
+		if result2 != nil {
+			*result2 = max(*result2, len(scanner.Text()))
+		}
+	}
 
-  if err := scanner.Err(); err != nil {
-    fmt.Fprintf(os.Stderr, "Error during scan %v\n", err)
-  }
-  *result = count
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error during scan %v\n", err)
+	}
+	*result = count
 }
 
 func countRunesAndLonestLine(reader io.Reader, result *int, longest *int) {
-  scanner := bufio.NewScanner(reader)
-  scanner.Split(bufio.ScanRunes)
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanRunes)
 
-  currentLongestLine := 0
-  for scanner.Scan() {
-    rune := scanner.Text()
-    *result++
-    if rune == "\n" {
-      if currentLongestLine > *longest {
-        *longest = currentLongestLine
-      }
-      currentLongestLine = 0
-    } else {
-      currentLongestLine++
-    }
-  }
+	currentLongestLine := 0
+	for scanner.Scan() {
+		rune := scanner.Text()
+		*result++
+		if rune == "\n" {
+			if currentLongestLine > *longest {
+				*longest = currentLongestLine
+			}
+			currentLongestLine = 0
+		} else {
+			currentLongestLine++
+		}
+	}
 
-  if err := scanner.Err(); err != nil {
-    fmt.Fprintf(os.Stderr, "Error during scan %v\n", err)
-  }
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error during scan %v\n", err)
+	}
 
-  if currentLongestLine > *longest {
-    *longest = currentLongestLine
-  }
+	if currentLongestLine > *longest {
+		*longest = currentLongestLine
+	}
 }
 
 func display(counts *count, f *flags, fileName string) {
-  if f.showLines {
-    fmt.Printf("%8d", counts.lines)
-  }
+	if f.showLines {
+		fmt.Printf("%8d", counts.lines)
+	}
 
-  if f.showWords {
-    fmt.Printf("%8d", counts.words)
-  }
+	if f.showWords {
+		fmt.Printf("%8d", counts.words)
+	}
 
-  if f.showBytes {
-    fmt.Printf("%8d", counts.bytes)
-  } else if f.showChars {
-    fmt.Printf("%8d", counts.chars)
-  }
+	if f.showBytes {
+		fmt.Printf("%8d", counts.bytes)
+	} else if f.showChars {
+		fmt.Printf("%8d", counts.chars)
+	}
 
-  if f.showLongest {
-    fmt.Printf("%8d", counts.longest)
-  }
+	if f.showLongest {
+		fmt.Printf("%8d", counts.longest)
+	}
 
-  fmt.Printf(" %s\n", fileName)
+	fmt.Printf(" %s\n", fileName)
 }
 
 func main() {
@@ -216,44 +216,44 @@ func main() {
 		resetFlags(os.Args[1:], linePtr, wordPtr, bytePtr, charsPtr)
 	}
 
-  aFlags := flags{
-    showLines: *linePtr,
-    showWords: *wordPtr,
-    showBytes: *bytePtr,
-    showChars: *charsPtr, 
-    showLongest: *maxBytesLinePtr,
-  } 
+	aFlags := flags{
+		showLines:   *linePtr,
+		showWords:   *wordPtr,
+		showBytes:   *bytePtr,
+		showChars:   *charsPtr,
+		showLongest: *maxBytesLinePtr,
+	}
 
 	if hasPipedData {
 		reader := bufio.NewReader(os.Stdin)
-    result := wc(reader)
-    display(result, &aFlags, "")
-    return
-  }
-
-  totals := count{}
-
-	for _, fileName := range fileArgs {
-    reader, err := os.Open(fileName)
-    if err != nil {
-      fmt.Fprintf(os.Stderr, "Error opening file %s", fileName)
-      os.Exit(1)
-    }
-
-    result := wc(reader)
-    display(result, &aFlags, fileName)
-    totals.bytes = totals.bytes + result.bytes
-    totals.lines = totals.lines + result.lines
-    totals.words = totals.words + result.words
-    totals.chars = totals.chars + result.chars
-    totals.longest = max(totals.longest, result.longest)
-
-    if err := reader.Close(); err != nil {
-      fmt.Fprintf(os.Stderr, "Error during closing file %s: %v\n", fileName, err)
-    }
+		result := wc(reader)
+		display(result, &aFlags, "")
+		return
 	}
 
-  if len(fileArgs) > 1 {
-    display(&totals, &aFlags, "total")
-  }
+	totals := count{}
+
+	for _, fileName := range fileArgs {
+		reader, err := os.Open(fileName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening file %s", fileName)
+			os.Exit(1)
+		}
+
+		result := wc(reader)
+		display(result, &aFlags, fileName)
+		totals.bytes = totals.bytes + result.bytes
+		totals.lines = totals.lines + result.lines
+		totals.words = totals.words + result.words
+		totals.chars = totals.chars + result.chars
+		totals.longest = max(totals.longest, result.longest)
+
+		if err := reader.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error during closing file %s: %v\n", fileName, err)
+		}
+	}
+
+	if len(fileArgs) > 1 {
+		display(&totals, &aFlags, "total")
+	}
 }
